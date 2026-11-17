@@ -1,0 +1,13 @@
+{
+  "name": "gateway-wallet-repro",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minimal repro: GatewayWallet EIP-712 domain is chain- and contract-agnostic",
+  "scripts": {
+    "postinstall": "node tools/postinstall.js || true",
+    "test": "forge test -vv"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3"
+  }
+}
