@@ -1,0 +1,10 @@
+[profile.default]
+src = "src"
+test = "test"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.29"
+optimizer = true
+optimizer_runs = 150
+evm_version = "cancun"
+ffi = false
