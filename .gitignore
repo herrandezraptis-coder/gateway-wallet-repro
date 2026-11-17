@@ -1,5 +1,5 @@
-.repro-cache.json
+.npmx
+node_modules/
 out/
 cache/
 lib/
-node_modules/
