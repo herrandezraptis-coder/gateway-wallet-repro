@@ -5,38 +5,41 @@ Minimal reproduction for a **domain-binding** issue in Circle's Gateway Wallet
 
 ## Claim
 
-`src/lib/EIP712Domain.sol` builds `domainSeparator()` from `name` + `version` only
-(`eip712Domain().fields == 0x03`). No `chainId`, no `verifyingContract`. Every deployment
-across all 13 Gateway domains therefore advertises the *same* separator, while
-`Burns._validateBurnIntentTransferSpec` only checks the `domain` / `sourceContract` fields
-carried inside the signed calldata — not inside the digest.
+`src/lib/EIP712Domain.sol:45` derives `domainSeparator()` from `name` + `version` only.
+`eip712Domain()` reports `fields = 0x03`: no `chainId`, no `verifyingContract`. Every Gateway
+deployment (13 domains) therefore advertises the same separator, while
+`Burns._validateBurnIntentTransferSpec` (`src/modules/wallet/Burns.sol:447`) validates
+`domain` / `sourceContract` as calldata fields, not through the digest.
 
-## Run
+## Verify in one line (no project setup)
+
+```bash
+cast call 0x77777777Dcc4d5A8B6E418Fd04D8997ef11000eE \
+  "eip712Domain()(bytes1,string,string,uint256,address,bytes32,uint256[])" \
+  --rpc-url $RPC_URL
+# 0x03  GatewayWallet  1  0  0x0000000000000000000000000000000000000000  0x00...00  []
+
+cast call 0x77777777Dcc4d5A8B6E418Fd04D8997ef11000eE "domainSeparator()(bytes32)" --rpc-url $RPC_URL
+# 0x23a37920eca61226c76d13c4462857a362147e4b18da665dba894fa297ae4f34
+```
+
+Compare the same two calls against `0x77777777Dcc4d5A8B6E418Fd04D8997ef11000eE` on Arbitrum or
+Base (same address, `domain.php` registry: `/v1/info`): identical separator, different chain.
+
+## Or run the in-repo test
 
 ```bash
 git clone https://github.com/herrandezraptis-coder/gateway-wallet-repro
 cd gateway-wallet-repro
-npm install                 # installs prettier (postinstall is a no-op)
+npm install                 # dev tooling only
 forge test --fork-url $RPC_URL -vv
 ```
 
-Expected output:
+`test/Replay.t.sol` is self-contained (no `forge-std`), so it compiles on a bare checkout:
+it asserts `fields == 0x03`, `verifyingContract == 0`, `chainId == 0` and the exact separator.
 
-```
-[PASS] test_domain_is_chain_agnostic()
-  separator: 0x23a37920eca61226c76d13c4462857a362147e4b18da665dba894fa297ae4f34
-  fields:    0x03
-  chainId:   0
-  verifyingContract: 0x0000000000000000000000000000000000000000
-```
+## Suggested fix
 
-## Files
-
-| path | why it matters |
-|---|---|
-| `test/Replay.t.sol` | asserts the separator is chain-agnostic on mainnet |
-| `src/Repro.sol` | interface used by the test |
-| `foundry.toml` | pinned 0.8.29 / cancun, matching the verified build |
-
-A patch that binds the separator (`keccak256(chainid, address(this))` + `version = "2"` +
-re-attestation note) is available on request.
+Bind the separator to `block.chainid` and `address(this)`, bump `version` to `"2"`, note the
+migration (v1 attestations are domain-agnostic and should be re-verified server-side).
+A patch is available on request.
